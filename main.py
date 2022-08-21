@@ -106,7 +106,7 @@ def home():
     # User is not loggedin redirect to login page
     return redirect(url_for('login'))
 
-# http://localhost:5000/pythinlogin/profile - this will be the profile page, only accessible for loggedin users
+# http://localhost:5000/pythonlogin/profile - this will be the profile page, only accessible for loggedin users
 @app.route('/pythonlogin/profile')
 def profile():
     # Check if user is loggedin
@@ -119,3 +119,7 @@ def profile():
         return render_template('profile.html', account=account)
     # User is not loggedin redirect to login page
     return redirect(url_for('login'))
+
+@app.route('/pythonlogin/change_password', methods=['GET', 'POST'])
+def change_password():
+    return render_template('change_password.html')
