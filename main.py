@@ -120,6 +120,11 @@ def profile():
     # User is not loggedin redirect to login page
     return redirect(url_for('login'))
 
+# http://localhost:5000/pythonlogin/change_password - page for user to change password
 @app.route('/pythonlogin/change_password', methods=['GET', 'POST'])
 def change_password():
+    if request.method == 'POST' and 'password1' in request.form and 'password2' in request.form and 'password3' in request.form:
+        # get password from db, ensure same password, make sure new password is the same too
+        print("Hello")
+        return render_template('change_password.html')
     return render_template('change_password.html')
