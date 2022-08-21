@@ -9,18 +9,19 @@
     <table>
         <tr>
             <td>Username:</td>
+            
             <td>{{ account['username'] }}</td>
-            <td> <input type="submit" value="Change Username"> </td>
         </tr>
         <tr>
             <td>Password:</td>
-            <td>{{ account['password'] }}</td>
-            <td> <input type="submit" value="Change Password"> </td>
+            <td>
+                <a href="{{ url_for('change_password') }}">Change Password</a>
+            </td>    
         </tr>
         <tr>
             <td>Email:</td>
             <td>{{ account['email'] }}</td>
-            <td> <input type="submit" value="Change Email"> </td>
+            <td> <input type="button" value="Change Email"> </td>
         </tr>
     </table>
 </div>
