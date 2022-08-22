@@ -10,6 +10,9 @@ app = Flask(__name__)
 app.secret_key = 'your secret key'
 
 # Enter your database connection details below
+conn=MySQLdb.connect(host="localhost", user="root", passwd="Hello123-", db="pythonlogin")
+cursor2=conn.cursor()
+
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = 'Hello123-'
@@ -33,6 +36,9 @@ def login():
         cursor.execute('SELECT * FROM accounts WHERE username = %s', (username,))
         # Fetch one record and return result
         account = cursor.fetchone()
+        if not account:
+            msg = 'User doesn\'t exist'
+            return render_template('index.html', msg=msg)
         hashed_password = account['password']
         # If account exists in accounts table in out database
         hasher = bcrypt.using(rounds=13)
@@ -123,8 +129,24 @@ def profile():
 # http://localhost:5000/pythonlogin/change_password - page for user to change password
 @app.route('/pythonlogin/change_password', methods=['GET', 'POST'])
 def change_password():
+    msg = ''
+    if request.method == 'POST' and 'returnprofile' in request.form:
+        return redirect(url_for('profile'))
     if request.method == 'POST' and 'password1' in request.form and 'password2' in request.form and 'password3' in request.form:
-        # get password from db, ensure same password, make sure new password is the same too
-        print("Hello")
-        return render_template('change_password.html')
-    return render_template('change_password.html')
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT password FROM accounts WHERE id = %s', (session['id'],))
+        password = cursor.fetchone()
+        given_password = request.form['password1']
+        hasher = bcrypt.using(rounds=13)
+        if hasher.verify(given_password,password['password']) and request.form['password2'] == request.form['password3']:
+            hashed_password = hasher.hash(request.form['password2'])
+            cursor.execute('UPDATE accounts SET password = %s WHERE id = %s', (hashed_password, session['id'],))
+            mysql.connection.commit()
+            return redirect(url_for('home'))
+        elif not hasher.verify(given_password,password['password']):
+            msg = 'Original password incorrect'
+            return render_template('change_password.html',msg=msg)
+        elif not request.form['password2'] == request.form['password3']:
+            msg = 'New password doesn\'t match confirmed password'
+            return render_template('change_password.html',msg=msg)
+    return render_template('change_password.html',msg=msg)
