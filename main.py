@@ -1,8 +1,14 @@
+from cProfile import label
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
 import re
 from passlib.hash import bcrypt
+import requests
+import pandas as pd
+import datetime as dt
+from datetime import date
+import json
 
 app = Flask(__name__)
 
@@ -130,8 +136,6 @@ def profile():
 @app.route('/pythonlogin/change_password', methods=['GET', 'POST'])
 def change_password():
     msg = ''
-    if request.method == 'POST' and 'returnprofile' in request.form:
-        return redirect(url_for('profile'))
     if request.method == 'POST' and 'password1' in request.form and 'password2' in request.form and 'password3' in request.form:
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute('SELECT password FROM accounts WHERE id = %s', (session['id'],))
@@ -150,3 +154,31 @@ def change_password():
             msg = 'New password doesn\'t match confirmed password'
             return render_template('change_password.html',msg=msg)
     return render_template('change_password.html',msg=msg)
+
+# http://localhost:5000/pythonlogin/stock_prices - page to show stock prices
+@app.route('/pythonlogin/stock_prices', methods=['GET', 'POST'])
+def stock_prices():
+    url = ''
+    company = 'IBM'
+    if request.method == 'POST' and 'company' in request.form:
+        company = request.form['company']
+        url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+    else:
+        url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+    r = requests.get(url)
+    data = r.json()
+    # pull stock market data
+    data = data['Time Series (Daily)']
+    df = pd.DataFrame(columns=['Date','Low','High','Close','Open'])
+    for key,val in data.items():
+        date = dt.datetime.strptime(key, '%Y-%m-%d')
+        data_row = [date.date(),float(val['3. low']),float(val['2. high']),
+                    float(val['4. close']),float(val['1. open'])]
+        df.loc[-1,:] = data_row
+        df.index = df.index + 1
+    labels = df['Date'].tolist()
+    labels = [date_obj.strftime('%Y-%m-%d') for date_obj in labels]
+    labels.reverse()
+    close_value = df['Close'].tolist()
+    close_value.reverse()
+    return render_template('stock_prices.html', labels=labels, close_value=close_value,company=company)
