@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <!-- Import axios, which makes HTTP requests in JS a little easier-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.27.2/axios.min.js" integrity="sha512-odNmoc1XJy5x1TMVMdC7EMs3IVdItLPlCeL5vSUPN2llYKMJ2eByTTAIiiuqLg+GdNr9hF6z81p27DArRFKT7A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='test.css') }}">
+    <title>Document</title>
+</head>
+<body>
+    <center>
+    <form class="par" action="{{ url_for('test') }}" method="post" autocomplete="off" id="t">
+      <input type="text" name="company" placeholder="e.g. 'AAPL'" onkeyup="getRandomNumber()" id="company" value="" required>
+      <input type="hidden" name="flag">
+      <input id="butt" type="submit" value="Submit">
+      <div class="autocomplete" id="result"></div>
+    </form>
+    </center>
+
+
+    <script>
+        function myFunction(id){
+          res = document.getElementById("company").value = id;
+        }
+        function getRandomNumber() {
+
+            let x = document.getElementById('company').value;
+            console.log(x);
+            /* const request = new XMLHttpRequest();
+            request.open('POST',`/api/datapoint/${JSON.stringify(x)}`);
+            request.send(); */
+             url = `/api/datapoint/${JSON.stringify(x)}`;
+
+            axios.get(url)
+            .then(function(response) {
+
+                // The data will all be returned as a JSON object
+                // We can access the data by using the data property of the response object
+
+               // document.getElementById('randomNumberDiv').innerHTML = response.data.random_number;
+               // document.getElementById('doubleRandomNumberDiv').innerHTML = response.data.double_random_number;
+               // document.getElementById('serverTimeDiv').innerHTML = response.data.timestamp;
+               var matched_companies = JSON.stringify(response.data);
+               availableTags = JSON.parse(matched_companies);
+               console.log(JSON.parse(matched_companies));
+
+               res = document.getElementById("result");
+               res.innerHTML = '';
+               //let list = '';
+               let list2 = '';
+               for (let k in availableTags) {
+                console.log(k + ' is ' + availableTags[k]);
+                //list += '<li class=\"autocomplete-items\" onclick=\"myFunction(this.id)\" id='+k+'>' + k + ' - ' + availableTags[k] + '</li>';
+                list2 += '<tr class =\"autocomplete-items\" onclick=\"myFunction(this.id)\" id='+k+'><td>' + k + ' - ' + availableTags[k] + '</td></tr>';
+            }
+               res.innerHTML = '<table id=\"tab\">' + list2 + '</table>';              
+            })
+            .catch(function(error) {
+                console.log(error);
+            }); 
+        }
+
+        // This calls the function getRandomNumber() every 2 seconds
+        //var intervalID = window.setInterval(getRandomNumber, 2000);
+
+    </script>
+</body>
+</html>

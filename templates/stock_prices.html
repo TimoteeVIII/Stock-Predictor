@@ -17,17 +17,29 @@
           <td>
             <form action="{{ url_for('stock_prices') }}" method="post" autocomplete="off">
               <input type="text" name="company" placeholder="e.g. 'AAPL'" id="company" required>
+              <input type="submit" value="Submit">
             </form>
           </td>
       </tr>
 
     </table>
-    <h3>{{ company }}'s Stock Price</h3>
+    <h3 id="currComp"></h3>
+    
+    <script>
+      var comp = {{ company.company|tojson }};
+      if(comp === 'Invalid Company Chosen'){
+        document.getElementById("currComp").innerHTML = comp;
+      }else{
+        document.getElementById("currComp").innerHTML = comp + '\'s Stock Price';
+      }
+      
+    </script>
     </center>
     
     <canvas id="myChart" width="400" height="400"></canvas>
     <script>
       var ctx = document.getElementById("myChart").getContext("2d");
+      ctx.canvas.height = screen.height/4;
       var linechart = new Chart(ctx,{
         type:'line',
         data:{

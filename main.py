@@ -159,15 +159,22 @@ def change_password():
 @app.route('/pythonlogin/stock_prices', methods=['GET', 'POST'])
 def stock_prices():
     url = ''
-    company = 'IBM'
+    company = {'company':'IBM'}
     if request.method == 'POST' and 'company' in request.form:
-        company = request.form['company']
-        url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+        company['company'] = request.form['company']
+        url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
     else:
-        url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+        url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
     r = requests.get(url)
     data = r.json()
     # pull stock market data
+    if 'Error Message' in data:
+        company = {'company':'Invalid Company Chosen'}
+        return render_template('stock_prices.html', company=company)
+    best_matches = 'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords='+company['company']+'&apikey=SHUKOMJN4MF9V6OE'
+    r = requests.get(best_matches)
+    matches = r.json()
+    print(matches)
     data = data['Time Series (Daily)']
     df = pd.DataFrame(columns=['Date','Low','High','Close','Open'])
     for key,val in data.items():
