@@ -1,5 +1,5 @@
 from cProfile import label
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
 import re
@@ -16,8 +16,8 @@ app = Flask(__name__)
 app.secret_key = 'your secret key'
 
 # Enter your database connection details below
-conn=MySQLdb.connect(host="localhost", user="root", passwd="Hello123-", db="pythonlogin")
-cursor2=conn.cursor()
+#conn=MySQLdb.connect(host="localhost", user="root", passwd="Hello123-", db="pythonlogin")
+#cursor2=conn.cursor()
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
@@ -136,12 +136,14 @@ def profile():
 @app.route('/pythonlogin/change_password', methods=['GET', 'POST'])
 def change_password():
     msg = ''
+    # check the entire form is filled in before changing the password
     if request.method == 'POST' and 'password1' in request.form and 'password2' in request.form and 'password3' in request.form:
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute('SELECT password FROM accounts WHERE id = %s', (session['id'],))
         password = cursor.fetchone()
         given_password = request.form['password1']
         hasher = bcrypt.using(rounds=13)
+        # check given password matches old password, and new passwords match, if so, replace it in the db
         if hasher.verify(given_password,password['password']) and request.form['password2'] == request.form['password3']:
             hashed_password = hasher.hash(request.form['password2'])
             cursor.execute('UPDATE accounts SET password = %s WHERE id = %s', (hashed_password, session['id'],))
@@ -160,6 +162,7 @@ def change_password():
 def stock_prices():
     url = ''
     company = {'company':'IBM'}
+    # form URL to get stock data using api
     if request.method == 'POST' and 'company' in request.form:
         company['company'] = request.form['company']
         url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
@@ -167,25 +170,47 @@ def stock_prices():
         url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
     r = requests.get(url)
     data = r.json()
-    # pull stock market data
-    if 'Error Message' in data:
+    # if no company exists, inform the user
+
+    #print(data)
+    if 'Error Message' in data or 'Note' in data:
         company = {'company':'Invalid Company Chosen'}
-        return render_template('stock_prices.html', company=company)
-    best_matches = 'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords='+company['company']+'&apikey=SHUKOMJN4MF9V6OE'
-    r = requests.get(best_matches)
-    matches = r.json()
-    print(matches)
+        return render_template('stock_prices.html', labels=[],close_value=[],company=company)
+    #best_matches = 'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords='+company['company']+'&apikey=SHUKOMJN4MF9V6OE'
+    #r = requests.get(best_matches)
+    #matches = r.json()
+    #print(matches)
     data = data['Time Series (Daily)']
     df = pd.DataFrame(columns=['Date','Low','High','Close','Open'])
+    # put json data into dataframe
     for key,val in data.items():
         date = dt.datetime.strptime(key, '%Y-%m-%d')
         data_row = [date.date(),float(val['3. low']),float(val['2. high']),
                     float(val['4. close']),float(val['1. open'])]
         df.loc[-1,:] = data_row
         df.index = df.index + 1
+    # get data from dataframe, and send to html page to render as graph
     labels = df['Date'].tolist()
     labels = [date_obj.strftime('%Y-%m-%d') for date_obj in labels]
     labels.reverse()
     close_value = df['Close'].tolist()
     close_value.reverse()
     return render_template('stock_prices.html', labels=labels, close_value=close_value,company=company)
+
+@app.route('/get_matches/<string:company>', methods=['GET','POST'])
+def api_datapoint(company):
+  matches = {'bestMatches':[]}
+  company = json.loads(company)
+  comp = company
+  best_matches = 'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords='+comp+'&apikey=SHUKOMJN4MF9V6OE'
+  r = requests.get(best_matches)
+  matches = r.json()
+  if 'Note' not in matches and matches['bestMatches'] != []:
+    matches = matches['bestMatches']
+    df = pd.DataFrame(matches)
+    df = df.drop(columns=['3. type', '4. region', '5. marketOpen', '6. marketClose', '7. timezone', '8. currency', '9. matchScore'])
+    symbols = df['1. symbol'].tolist()
+    names = df['2. name'].tolist()
+    to_send = dict(zip(symbols,names))
+    return jsonify(to_send)
+  return jsonify({})

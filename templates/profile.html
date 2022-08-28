@@ -3,13 +3,14 @@
 {% block title %}Profile{% endblock %}
 
 {% block content %}
+<body>
 <h2>Profile Page</h2>
 <div>
     <p>Your account details are below:</p>
+    <!-- table that displays user's details to them -->
     <table>
         <tr>
-            <td>Username:</td>
-            
+            <td>Username:</td>            
             <td>{{ account['username'] }}</td>
         </tr>
         <tr>
@@ -24,4 +25,5 @@
         </tr>
     </table>
 </div>
+</body>
 {% endblock %}

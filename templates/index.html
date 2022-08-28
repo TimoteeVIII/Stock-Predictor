@@ -13,6 +13,7 @@
 				<a href="{{ url_for('login') }}" class="active">Login</a>
 				<a href="{{ url_for('register') }}">Register</a>
 			</div>
+			<!-- form for user to enter their details -->
 			<form action="{{ url_for('login') }}" method="post">
 				<label for="username">
 					<i class="fas fa-user"></i>
@@ -22,6 +23,7 @@
 					<i class="fas fa-lock"></i>
 				</label>
 				<input type="password" name="password" placeholder="Password" id="password" required>
+				<!--  outputs message to user if they don't enter correct details -->
 				<div class="msg">{{ msg }}</div>
 				<input type="submit" value="Login">
 			</form>
