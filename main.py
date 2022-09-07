@@ -1,4 +1,6 @@
 from cProfile import label
+from fileinput import close
+from operator import rshift
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
@@ -6,10 +8,15 @@ import re
 from passlib.hash import bcrypt
 import requests
 import pandas as pd
+from pandas import DataFrame
 import datetime as dt
 from datetime import date
 import json
-
+import statistics
+import numpy as np
+from sklearn.linear_model import LinearRegression
+import matplotlib.pyplot as plt
+import statistics
 app = Flask(__name__)
 
 # Change this to your secret key (can be anything, it's for extra protection)
@@ -27,8 +34,8 @@ app.config['MYSQL_DB'] = 'pythonlogin'
 # Intialize MySQL
 mysql = MySQL(app)
 
-# http://localhost:5000/pythonlogin/ - the following will be our login page, which will use both GET and POST requests
-@app.route('/pythonlogin/', methods=['GET', 'POST'])
+# http://localhost:5000/ - the following will be our login page, which will use both GET and POST requests
+@app.route('/', methods=['GET', 'POST'])
 def login():
     # Output message if something goes wrong...
     msg = ''
@@ -61,8 +68,8 @@ def login():
     # Show the login form with message (if any)
     return render_template('index.html', msg=msg)
 
-# http://localhost:5000/python/logout - this will be the logout page
-@app.route('/pythonlogin/logout')
+# http://localhost:5000/logout/ - this will be the logout page
+@app.route('/logout/')
 def logout():
     # Remove session data, this will log the user out
    session.pop('loggedin', None)
@@ -71,8 +78,8 @@ def logout():
    # Redirect to login page
    return redirect(url_for('login'))
 
-# http://localhost:5000/pythinlogin/register - this will be the registration page, we need to use both GET and POST requests
-@app.route('/pythonlogin/register', methods=['GET', 'POST'])
+# http://localhost:5000/register/ - this will be the registration page, we need to use both GET and POST requests
+@app.route('/register/', methods=['GET', 'POST'])
 def register():
     # Output message if something goes wrong...
     msg = ''
@@ -108,18 +115,50 @@ def register():
     # Show registration form with message (if any)
     return render_template('register.html', msg=msg)
 
-# http://localhost:5000/pythinlogin/home - this will be the home page, only accessible for loggedin users
-@app.route('/pythonlogin/home')
+# http://localhost:5000/home/ - this will be the home page, only accessible for loggedin users
+@app.route('/home/')
 def home():
     # Check if user is loggedin
     if 'loggedin' in session:
+        # get current investments
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT company as Company, shares_bought as `Shares Bought`, money_invested as `Money Invested`, cost_per_share as `Cost Per Share`FROM investments WHERE user_id = %s', (session['id'],))
+        investments = DataFrame(cursor.fetchall())
+        investments['Latest Close'] = ""
+        investments['Profit'] = ""
+        # go through each investment, and display as table to user
+        for i in investments.index:
+            url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+investments['Company'][i]+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+            r = requests.get(url)
+            data = r.json()
+            if 'Time Series (Daily)' not in data:
+                return render_template('home.html', username=session['username'], msg="No Investments")
+            data = data['Time Series (Daily)']
+            first_pair = next(iter((data.items())))
+            close_val = float(first_pair[1]['4. close'])
+            profit = (float(investments['Shares Bought'][i]) * close_val) - float(investments['Money Invested'][i])
+            investments['Latest Close'][i] = f"{close_val:.2f}"
+            investments['Profit'][i] = f"{profit:.2f}"
+        dict_data = [investments.to_dict(), investments.to_dict('index')]
+        htmldf = '<table id=\"invests\"><tbody id=\"bod\"><tr>'
+        for key in dict_data[0].keys():
+            htmldf = htmldf + '<th class="header">' + key + '</th>'
+        htmldf = htmldf + '</tr>'
+        
+        for key in dict_data[1].keys():
+            htmldf = htmldf + '<tr>'
+            for subkey in dict_data[1][key]:
+                htmldf = htmldf + '<td class=\"comps\">' + str(dict_data[1][key][subkey]) + '</td>'
+            htmldf = htmldf + '</tr>'
+
+        htmldf = htmldf + '</tr></tbody></table>'
         # User is loggedin show them the home page
-        return render_template('home.html', username=session['username'])
+        return render_template('home.html', username=session['username'], data=[htmldf])
     # User is not loggedin redirect to login page
     return redirect(url_for('login'))
 
-# http://localhost:5000/pythonlogin/profile - this will be the profile page, only accessible for loggedin users
-@app.route('/pythonlogin/profile')
+# http://localhost:5000/home/profile/ - this will be the profile page, only accessible for loggedin users
+@app.route('/home/profile/')
 def profile():
     # Check if user is loggedin
     if 'loggedin' in session:
@@ -132,8 +171,8 @@ def profile():
     # User is not loggedin redirect to login page
     return redirect(url_for('login'))
 
-# http://localhost:5000/pythonlogin/change_password - page for user to change password
-@app.route('/pythonlogin/change_password', methods=['GET', 'POST'])
+# http://localhost:5000/home/profile/change_password/ - page for user to change password
+@app.route('/home/profile/change_password/', methods=['GET', 'POST'])
 def change_password():
     msg = ''
     # check the entire form is filled in before changing the password
@@ -157,29 +196,24 @@ def change_password():
             return render_template('change_password.html',msg=msg)
     return render_template('change_password.html',msg=msg)
 
-# http://localhost:5000/pythonlogin/stock_prices - page to show stock prices
-@app.route('/pythonlogin/stock_prices', methods=['GET', 'POST'])
+# http://localhost:5000/home/stock_prices - page to show stock prices
+@app.route('/home/stock_prices/', methods=['GET', 'POST'])
 def stock_prices():
     url = ''
     company = {'company':'IBM'}
     # form URL to get stock data using api
     if request.method == 'POST' and 'company' in request.form:
         company['company'] = request.form['company']
+        company['company'] = company['company'].upper()
         url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
     else:
         url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
     r = requests.get(url)
     data = r.json()
     # if no company exists, inform the user
-
-    #print(data)
     if 'Error Message' in data or 'Note' in data:
         company = {'company':'Invalid Company Chosen'}
         return render_template('stock_prices.html', labels=[],close_value=[],company=company)
-    #best_matches = 'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords='+company['company']+'&apikey=SHUKOMJN4MF9V6OE'
-    #r = requests.get(best_matches)
-    #matches = r.json()
-    #print(matches)
     data = data['Time Series (Daily)']
     df = pd.DataFrame(columns=['Date','Low','High','Close','Open'])
     # put json data into dataframe
@@ -195,16 +229,43 @@ def stock_prices():
     labels.reverse()
     close_value = df['Close'].tolist()
     close_value.reverse()
-    return render_template('stock_prices.html', labels=labels, close_value=close_value,company=company)
+    df['Daily_Return'] = df['Close'].pct_change()
 
+    df = df.iloc[::-1]
+    df = df.dropna()
+
+    sd_percentage = calculate_sd(close_value)
+
+    sharpe_ratio = calculate_sharpe_ratio(df['Daily_Return'])
+    
+    x = list(range(1,len(df)+1))
+    float_lst = []
+    for item in x:
+        float_lst.append(float(item))
+    y = df['Close']
+    float_lst1 = []
+    for item in y:
+        float_lst1.append(float(item))
+    d = np.polyfit(float_lst, float_lst1, 1)
+    f = np.poly1d(d)
+    df.insert(6,'Reg Val',f(float_lst))
+    for index, row in df.iterrows():
+        df.at[index,'Reg Val'] = f"{row['Reg Val']:.2f}"
+    
+    r_squared = calculate_r_squared(df)
+    return render_template('stock_prices.html', labels=labels, close_value=close_value,company=company, sd=sd_percentage, sharpe=sharpe_ratio, r_sqr = r_squared)
+
+# method that gets suggested matches when user is typing
 @app.route('/get_matches/<string:company>', methods=['GET','POST'])
-def api_datapoint(company):
+def get_matches(company):
+  # initialise data for best matches, and form url to query api
   matches = {'bestMatches':[]}
   company = json.loads(company)
   comp = company
   best_matches = 'https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords='+comp+'&apikey=SHUKOMJN4MF9V6OE'
   r = requests.get(best_matches)
   matches = r.json()
+  # ensure there exists at least one match, if so, return as json to be displayed to user, otherwise return empty dictionary
   if 'Note' not in matches and matches['bestMatches'] != []:
     matches = matches['bestMatches']
     df = pd.DataFrame(matches)
@@ -214,3 +275,57 @@ def api_datapoint(company):
     to_send = dict(zip(symbols,names))
     return jsonify(to_send)
   return jsonify({})
+
+# http://localhost:5000/home/update_investments - method that allows users to update their investments
+@app.route('/home/update_investments/', methods=['GET','POST'])
+def update_investments(): 
+    share_count = 0.0
+    money_invested = 0.0
+    # get data from form, and add it to database 
+    if request.method == 'POST':
+        company = request.form['company']
+        cost_per_share = float(request.form['cost_per_share'])
+        if request.form['share_count'] != '' and request.form['money_invested'] == '':
+            share_count = float(request.form['share_count'])
+            money_invested = f"{(share_count * cost_per_share):.2f}"
+        elif request.form['share_count'] == '' and request.form['money_invested'] != '':
+            money_invested = float(request.form['money_invested'])
+            share_count = f"{(money_invested / cost_per_share):.2f}"
+        else:
+            share_count = float(request.form['share_count'])
+            money_invested = float(request.form['money_invested'])
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('INSERT INTO investments VALUES (NULL, %s, %s, %s, %s, %s)', (session['id'], company, share_count, money_invested, cost_per_share,))
+        mysql.connection.commit()
+    return render_template('update_investments.html')
+
+def calculate_sd(close_vals):
+    sd = statistics.stdev(close_vals)
+    mean = statistics.mean(close_vals)
+    perc = f"{((sd/mean)*100):.2f}"
+    return perc
+
+# src = https://medium.datadriveninvestor.com/the-sharpe-ratio-with-python-from-scratch-fbb1d5e490b9
+def calculate_sharpe_ratio(data, risk_free_rate=0):
+    mean_daily_return = sum(data) / len(data)
+    sd = statistics.stdev(data)
+    daily_sharpe_ratio = (mean_daily_return - risk_free_rate) / sd
+    sharpe_ratio = 252**(1/2) * daily_sharpe_ratio
+    return f"{sharpe_ratio:.2f}"
+
+# src = https://www.investopedia.com/terms/r/r-squared.asp
+def calculate_r_squared(df):
+    close = df['Close']
+    reg_line_vals = df['Reg Val']
+    unexplained_var = 0
+    total_var = 0
+    mean = statistics.mean(close)
+    for i in range(len(close)):
+        unexplained_var += (reg_line_vals[i] - close[i])**2
+        total_var += (close[i] - mean)**2
+    #print(unexplained_var)
+    #print(total_var)
+    # return true r squared value
+    #f"{close_val:.2f}"
+    r_squared = f"{(1-(unexplained_var/total_var)):.2f}"
+    return r_squared

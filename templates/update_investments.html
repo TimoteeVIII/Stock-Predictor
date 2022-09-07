@@ -1,0 +1,46 @@
+{% extends 'layout.html' %}
+
+{% block title %}Update Investments{% endblock %}
+
+{% block content %}
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.27.2/axios.min.js" integrity="sha512-odNmoc1XJy5x1TMVMdC7EMs3IVdItLPlCeL5vSUPN2llYKMJ2eByTTAIiiuqLg+GdNr9hF6z81p27DArRFKT7A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="../../static/js/autoCompSearch.js"></script>
+  <script src="../../static/js/removeSuggestions.js"></script>
+  <script src="../../static/js/upInvFormVal.js"></script>
+</head>
+
+<body>
+  <br>
+  <br>
+  <center>
+    <form action="{{ url_for('update_investments') }}" method="post" autocomplete="off" id="companyOfInterest">
+      <div id="compbox">
+        <label for="company">Enter Company: </label>
+        <input type="text" name="company" placeholder="e.g. 'AAPL'" id="company" onkeyup="getSuggestions()" required>
+      </div>
+      <div class="autocomplete" id="result"></div>
+      <br>
+      <div id="sharecountbox">
+        <label for="share_count">Enter Number of Shares Bought: </label>
+        <input type="number" name="share_count" placeholder="e.g. 10 (to nearest hundredth)" id="share_count" min="0" step="0.01">
+      </div>
+      <br>
+      <div id="moneyinvestedbox">
+        <label for="money_invested">Enter Value of Money Invested: </label>
+        <input type="number" name="money_invested" placeholder="e.g. 10.50" id="money_invested" min="0" step="0.01">
+      </div>
+      <br>
+      <div id="costpersharebox">
+      <label for="cost_per_share">Enter Cost Per Share: </label>
+        <input type="number" name="cost_per_share" placeholder="e.g. 143.72 (when shares bought)" id="cost_per_share" min="0" step="0.01" required>
+        <input type="hidden" name="flag" id="flag">
+      </div>
+      <br>
+      <input type="submit" value="Submit" class="buttons">
+    </form>
+    <br>
+    <div class="msg">{{ msg }}</div>
+  </center>
+</body>
+{% endblock %}

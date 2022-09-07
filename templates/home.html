@@ -3,6 +3,12 @@
 {% block title %}Home{% endblock %}
 <!-- display home page to user based on their details -->
 {% block content %}
-<h2>Home Page</h2>
-<p>Welcome back, {{ username }}!</p>
+<body>
+  <h2>Home Page</h2>
+  <p>Welcome back {{ username }}, here are your current investments!</p>
+  <center>{{ msg }}</center>
+  {% for table in data %}
+    {{ table|safe }}
+  {% endfor %}
+</body>
 {% endblock %}

@@ -5,20 +5,19 @@
 {% block content %}
   <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
-    <script src="../static/autoCompSearch.js"></script>
-    <script src="../static/removeSuggestions.js"></script>
+    <script src="../../static/js/autoCompSearch.js"></script>
+    <script src="../../static/js/removeSuggestions.js"></script>
+    <script src="../../static/js/limitFormSubmission.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.27.2/axios.min.js" integrity="sha512-odNmoc1XJy5x1TMVMdC7EMs3IVdItLPlCeL5vSUPN2llYKMJ2eByTTAIiiuqLg+GdNr9hF6z81p27DArRFKT7A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   </head>
   <body>
 
     <br>
-    <center>
-      
-      <form action="{{ url_for('stock_prices') }}" method="post" autocomplete="off">
+    <center>      
+      <form action="{{ url_for('stock_prices') }}" method="post" autocomplete="off" id="companyOfInterest">
         <label for="company">Enter Company: </label>
         <input type="text" name="company" placeholder="e.g. 'AAPL'" id="company" onkeyup="getSuggestions()" required>
         <input type="hidden" name="flag" id="flag">
-        <input type="submit" value="Submit" class="buttons">
       </form>
       <div class="autocomplete" id="result"></div>
     <!-- header stores the name of the current company so it can be shown to the user -->
@@ -39,6 +38,17 @@
     
     
     <canvas id="myChart" width="400" height="400"></canvas>
+
+    <center>
+      <h3>Risk Assessment</h3>
+      <p>
+        Standard Deviation Percentage: {{ sd }}%
+        <br>
+        Sharpe Ratio: {{ sharpe }}
+        <br>
+        R-Squared Value: {{ r_sqr }}
+      </p>
+    </center>
     <script>
       // if user enters invalid company, throw error
       if(document.getElementById("currComp").innerHTML === 'Invalid Company Chosen'){
