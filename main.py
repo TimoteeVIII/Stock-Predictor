@@ -1,6 +1,7 @@
 """ from cProfile import label
 from fileinput import close
 from operator import rshift """
+from multiprocessing import shared_memory
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
@@ -210,10 +211,12 @@ def stock_prices():
     if request.method == 'POST' and 'company' in request.form:
         company['company'] = request.form['company']
         company['company'] = company['company'].upper()
-        url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+        #url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+        df = get_stock_data(company['company'])
     else:
-        url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
-    r = requests.get(url)
+        #url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company['company']+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+        df = get_stock_data(company['company'])
+    """ r = requests.get(url)
     data = r.json()
     # if no company exists, inform the user
     if 'Error Message' in data or 'Note' in data:
@@ -227,21 +230,28 @@ def stock_prices():
         data_row = [date.date(),float(val['3. low']),float(val['2. high']),
                     float(val['4. close']),float(val['1. open'])]
         df.loc[-1,:] = data_row
-        df.index = df.index + 1
-    # get data from dataframe, and send to html page to render as graph
+        df.index = df.index + 1 """
+    if df is None:
+        return render_template('stock_prices.html', labels=[],close_value=[],company={'company':'Invalid Company Chosen'})
+
+
+
     labels = df['Date'].tolist()
     labels = [date_obj.strftime('%Y-%m-%d') for date_obj in labels]
-    labels.reverse()
+    # labels.reverse()
     close_value = df['Close'].tolist()
-    close_value.reverse()
+    # close_value.reverse()
     df['Daily_Return'] = df['Close'].pct_change()
 
-    df = df.iloc[::-1]
-    df = df.dropna()
+    #df = df.iloc[::-1]
+    #df = df.dropna()
 
     sd_percentage = calculate_sd(close_value)
-
-    sharpe_ratio = calculate_sharpe_ratio(df['Daily_Return'])
+    daily_return_no_nan = df['Daily_Return'].tolist()
+    daily_return_no_nan = [x for x in daily_return_no_nan if str(x) != 'nan']
+    daily_return_no_nan.reverse()
+    sharpe_ratio = calculate_sharpe_ratio(daily_return_no_nan)
+    sharpe_ratio = float(sharpe_ratio) * -1
     
     x = list(range(1,len(df)+1))
     float_lst = []
@@ -253,11 +263,13 @@ def stock_prices():
         float_lst1.append(float(item))
     d = np.polyfit(float_lst, float_lst1, 1)
     f = np.poly1d(d)
-    df.insert(6,'Reg Val',f(float_lst))
+    df.insert(6,'Regression Val',f(float_lst))
     for index, row in df.iterrows():
-        df.at[index,'Reg Val'] = f"{row['Reg Val']:.2f}"
+        df.at[index,'Regression Val'] = f"{row['Regression Val']:.2f}"
     
     r_squared = calculate_r_squared(df)
+
+    # get data from dataframe, and send to html page to render as graph
     return render_template('stock_prices.html', labels=labels, close_value=close_value,company=company, sd=sd_percentage, sharpe=sharpe_ratio, r_sqr = r_squared)
 
 # method that gets suggested matches when user is typing
@@ -360,7 +372,7 @@ def calculate_sharpe_ratio(data, risk_free_rate=0):
 # src = https://www.investopedia.com/terms/r/r-squared.asp
 def calculate_r_squared(df):
     close = df['Close']
-    reg_line_vals = df['Reg Val']
+    reg_line_vals = df['Regression Val']
     unexplained_var = 0
     total_var = 0
     mean = statistics.mean(close)
