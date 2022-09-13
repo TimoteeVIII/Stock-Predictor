@@ -14,7 +14,8 @@
   <body>
 
     <br>
-    <center>      
+    <center>
+      <!-- Form to get company to predict prices of -->
       <form action="{{ url_for('stock_predictions') }}" method="post" autocomplete="off" id="companyOfInterest">
         <label for="company">Enter Company: </label>
         <input type="text" name="company" placeholder="e.g. 'AAPL'" id="company" onkeyup="getSuggestions()" required>
@@ -38,7 +39,6 @@
     
     
     <canvas id="myChart" width="400" height="400"></canvas>
-    
     <script>
       // if user enters invalid company, throw error
       if(document.getElementById("currComp").innerHTML === 'Invalid Company Chosen' || document.getElementById("currComp").innerHTML === ''){
@@ -59,7 +59,7 @@
       console.log(graph_prices);
       // draw graph based on data passed from backend
       var ctx = document.getElementById("myChart").getContext("2d");
-      ctx.canvas.height = screen.height/4;
+      ctx.canvas.height = screen.height/4;;
       var linechart = new Chart(ctx,{
         type:'line',
         data:{
@@ -83,8 +83,8 @@
           ]
         },
         options:{
-          responsiveness: true,
-          maintainAspectRatio: false,
+          /* responsiveness: false,
+          maintainAspectRatio: false, */
           spanGaps: true
         }
       });

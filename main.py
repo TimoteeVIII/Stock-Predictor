@@ -304,24 +304,30 @@ def update_investments():
         mysql.connection.commit()
     return render_template('update_investments.html')
 
-# http://localhost:5000/home/stock_predictions - method that allows users to update their investments
+# http://localhost:5000/home/stock_predictions - method that returns the dataframe including predicted prices
 @app.route('/home/stock_predictions/', methods=['GET','POST'])
 def stock_predictions():
+    # initialise variables
     company = {'company':''}
     prior_dates = []
     predicted_dates = []
     actual_prices = []
     predicted_prices_to_send = []
+    # when form submitted, get data
     if request.method == 'POST' and 'company' in request.form:
         company['company'] = request.form['company']
         company['company'] = company['company'].upper()
         df = get_stock_data(company['company'])
-        
+        # if invalid company, render page without graph
+        if df is None:
+            return render_template('stock_predictions.html', company={'company':''})
+        # get predicted price
         predicted_prices = predict_prices(df)
+        # convert predicted prices to 2dp
         for index, row in predicted_prices.iterrows():
             if not math.isnan(row['Forecast']):
                 predicted_prices.at[index,'Forecast'] = f"{row['Forecast']:.2f}"
-        # [date_obj.strftime('%Y-%m-%d') for date_obj in labels]
+        # store historical data, and future data separately
         for index, row in predicted_prices.iterrows():
             if not math.isnan(row['Actual']):
                 prior_dates.append(index.date())
@@ -329,6 +335,7 @@ def stock_predictions():
             if not math.isnan(row['Forecast']):
                 predicted_dates.append(index.date())
                 predicted_prices_to_send.append(row['Forecast'])
+        # convert dates to string, and combine future dates with historical dates
         prior_dates = [date_obj.strftime('%Y-%m-%d') for date_obj in prior_dates]
         predicted_dates = [date_obj.strftime('%Y-%m-%d') for date_obj in predicted_dates]
         prior_dates.extend(predicted_dates)
@@ -367,10 +374,13 @@ def calculate_r_squared(df):
     r_squared = f"{(1-(unexplained_var/total_var)):.2f}"
     return r_squared
 
+# get the stock data using alphavantage API
 def get_stock_data(company):
+    # query api and convert stock data to json
     url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
     r = requests.get(url)
     data = r.json()
+    # if valid company, convert json data to dataframe, and return the df
     if 'Time Series (Daily)' in data:
         data = data['Time Series (Daily)']
         df = pd.DataFrame(columns=['Date','Low','High','Close','Open'])
