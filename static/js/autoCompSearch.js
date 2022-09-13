@@ -4,7 +4,7 @@ function replaceCompany(id){
   fileName = fileName.slice(0,-1);
   fileName = fileName.split("/").pop();
   res = document.getElementById("company").value = id;
-  if(fileName === 'stock_prices'){
+  if(fileName === 'stock_prices' || fileName === 'stock_predictions'){
     document.getElementById("companyOfInterest").submit();
   }  
 }

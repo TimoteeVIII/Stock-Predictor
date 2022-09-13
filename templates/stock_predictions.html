@@ -1,0 +1,94 @@
+{% extends 'layout.html' %}
+
+{% block title %}Stock Predictions{% endblock %}
+
+{% block content %}
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
+    <script src="../../static/js/autoCompSearch.js"></script>
+    <script src="../../static/js/removeSuggestions.js"></script>
+    <script src="../../static/js/limitFormSubmission.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.27.2/axios.min.js" integrity="sha512-odNmoc1XJy5x1TMVMdC7EMs3IVdItLPlCeL5vSUPN2llYKMJ2eByTTAIiiuqLg+GdNr9hF6z81p27DArRFKT7A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  </head>
+
+  <body>
+
+    <br>
+    <center>      
+      <form action="{{ url_for('stock_predictions') }}" method="post" autocomplete="off" id="companyOfInterest">
+        <label for="company">Enter Company: </label>
+        <input type="text" name="company" placeholder="e.g. 'AAPL'" id="company" onkeyup="getSuggestions()" required>
+        <input type="hidden" name="flag" id="flag">
+      </form>
+      <div class="autocomplete" id="result"></div>
+    <!-- header stores the name of the current company so it can be shown to the user -->
+    <h3 id="currComp"></h3>
+    </center>
+    
+    <script>
+      // get company user has submitted, and show that to user
+      var comp = {{ company.company|tojson }};
+      document.getElementById("flag").value = comp;
+      if(comp === 'Invalid Company Chosen' || comp ===''){
+        document.getElementById("currComp").innerHTML = comp;
+      }else{
+        document.getElementById("currComp").innerHTML = comp + '\'s Stock Price';
+      }      
+    </script>
+    
+    
+    <canvas id="myChart" width="400" height="400"></canvas>
+    
+    <script>
+      // if user enters invalid company, throw error
+      if(document.getElementById("currComp").innerHTML === 'Invalid Company Chosen' || document.getElementById("currComp").innerHTML === ''){
+        throw new Error("Invalid Company Chosen");
+      }
+      const graph_prices = []
+      var prev_prices = {{ actual_prices }};
+      var pred_prices = {{ predicted_prices }};
+      for (var i = 0; i < prev_prices.length-1; i++) {
+        //pred_prices.unshift(null);
+        graph_prices.push(null)
+      }
+      graph_prices.push(pred_prices[0])
+      graph_prices.push(null)
+      for (var i = 1; i < pred_prices.length; i++) {
+        graph_prices.push(pred_prices[i])
+      }
+      console.log(graph_prices);
+      // draw graph based on data passed from backend
+      var ctx = document.getElementById("myChart").getContext("2d");
+      ctx.canvas.height = screen.height/4;
+      var linechart = new Chart(ctx,{
+        type:'line',
+        data:{
+          labels: {{labels | safe}},
+          datasets:[
+            {
+              label: "Actual Price",
+              data: {{actual_prices | safe}},
+              fill: false,
+              borderColor: "rgb(75,192,192)",
+              lineTension: 0.1,
+              spanGaps: true
+            }, {
+              label: "Predicted Price",
+              data: graph_prices,
+              fill: false,
+              borderColor: "rgb(192,192,192)",
+              lineTension: 0.1,
+              spanGaps: true
+            }
+          ]
+        },
+        options:{
+          responsiveness: true,
+          maintainAspectRatio: false,
+          spanGaps: true
+        }
+      });
+    </script>
+
+  </body>
+{% endblock %}

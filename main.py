@@ -1,6 +1,6 @@
-from cProfile import label
+""" from cProfile import label
 from fileinput import close
-from operator import rshift
+from operator import rshift """
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
@@ -16,7 +16,12 @@ import statistics
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
-import statistics
+import tensorflow as tf
+from keras.layers import Dense, LSTM
+from keras.models import Sequential
+from sklearn.preprocessing import MinMaxScaler
+import math
+
 app = Flask(__name__)
 
 # Change this to your secret key (can be anything, it's for extra protection)
@@ -299,6 +304,38 @@ def update_investments():
         mysql.connection.commit()
     return render_template('update_investments.html')
 
+# http://localhost:5000/home/stock_predictions - method that allows users to update their investments
+@app.route('/home/stock_predictions/', methods=['GET','POST'])
+def stock_predictions():
+    company = {'company':''}
+    prior_dates = []
+    predicted_dates = []
+    actual_prices = []
+    predicted_prices_to_send = []
+    if request.method == 'POST' and 'company' in request.form:
+        company['company'] = request.form['company']
+        company['company'] = company['company'].upper()
+        df = get_stock_data(company['company'])
+        
+        predicted_prices = predict_prices(df)
+        for index, row in predicted_prices.iterrows():
+            if not math.isnan(row['Forecast']):
+                predicted_prices.at[index,'Forecast'] = f"{row['Forecast']:.2f}"
+        # [date_obj.strftime('%Y-%m-%d') for date_obj in labels]
+        for index, row in predicted_prices.iterrows():
+            if not math.isnan(row['Actual']):
+                prior_dates.append(index.date())
+                actual_prices.append(row['Actual'])
+            if not math.isnan(row['Forecast']):
+                predicted_dates.append(index.date())
+                predicted_prices_to_send.append(row['Forecast'])
+        prior_dates = [date_obj.strftime('%Y-%m-%d') for date_obj in prior_dates]
+        predicted_dates = [date_obj.strftime('%Y-%m-%d') for date_obj in predicted_dates]
+        prior_dates.extend(predicted_dates)
+        return render_template('stock_predictions.html', company=company, labels=prior_dates, actual_prices=actual_prices, predicted_prices=predicted_prices_to_send)
+    else:
+        return render_template('stock_predictions.html', company=company)
+
 def calculate_sd(close_vals):
     sd = statistics.stdev(close_vals)
     mean = statistics.mean(close_vals)
@@ -329,3 +366,77 @@ def calculate_r_squared(df):
     #f"{close_val:.2f}"
     r_squared = f"{(1-(unexplained_var/total_var)):.2f}"
     return r_squared
+
+def get_stock_data(company):
+    url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+company+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
+    r = requests.get(url)
+    data = r.json()
+    if 'Time Series (Daily)' in data:
+        data = data['Time Series (Daily)']
+        df = pd.DataFrame(columns=['Date','Low','High','Close','Open'])
+        for key,val in data.items():
+            date = dt.datetime.strptime(key, '%Y-%m-%d')
+            data_row = [date.date(),float(val['3. low']),float(val['2. high']),
+                        float(val['4. close']),float(val['1. open'])]
+            df.loc[-1,:] = data_row
+            df.index = df.index + 1
+        df = df.iloc[::-1]
+        return df
+    else:
+        return None
+
+def predict_prices(df):
+    y = df['Close'].fillna(method='ffill')
+    y = y.values.reshape(-1, 1)
+
+    # scale the data
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaler = scaler.fit(y)
+    y = scaler.transform(y)
+
+    # generate the input and output sequences
+    n_lookback = 60  # length of input sequences (lookback period)
+    n_forecast = 30  # length of output sequences (forecast period)
+
+    X = []
+    Y = []
+
+    for i in range(n_lookback, len(y) - n_forecast + 1):
+        X.append(y[i - n_lookback: i])
+        Y.append(y[i: i + n_forecast])
+
+
+    X = np.array(X)
+    Y = np.array(Y)
+
+    # fit the model
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=(n_lookback, 1)))
+    model.add(LSTM(units=50))
+    model.add(Dense(n_forecast))
+
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    model.fit(X, Y, epochs=100, batch_size=32, verbose=0)
+
+    # generate the forecasts
+    X_ = y[- n_lookback:]  # last available input sequence
+    X_ = X_.reshape(1, n_lookback, 1)
+
+    Y_ = model.predict(X_).reshape(-1, 1)
+    Y_ = scaler.inverse_transform(Y_)
+
+    # organize the results in a data frame
+
+    df_past = df[['Close']].reset_index()
+    df_past.rename(columns={'index': 'Date', 'Close': 'Actual'}, inplace=True)
+    df_past['Date'] = pd.to_datetime(df['Date'])
+    df_past['Forecast'] = np.nan
+    df_past['Forecast'].iloc[-1] = df_past['Actual'].iloc[-1]
+
+    df_future = pd.DataFrame(columns=['Date', 'Actual', 'Forecast'])
+    df_future['Date'] = pd.date_range(start=df_past['Date'].iloc[-1] + pd.Timedelta(days=1), periods=n_forecast)
+    df_future['Forecast'] = Y_.flatten()
+    df_future['Actual'] = np.nan
+
+    results = df_past.append(df_future).set_index('Date')
+    return results

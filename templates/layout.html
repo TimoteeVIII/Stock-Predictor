@@ -9,16 +9,19 @@
 	</head>
 	<!--  layout for pages after logging in -->
 	<body class="loggedin">
+		<center>
 		<nav class="navtop">
 			<div>
-				<h1>Stock App</h1>
+				<!-- <h1>Stock App</h1> -->
         <a href="{{ url_for('home') }}"><i class="fas fa-home"></i>Home</a>
 				<a href="{{ url_for('stock_prices') }}"><i class="fas fa-dollar-sign"></i>Check Stock Prices</a>
+				<a href="{{ url_for('stock_predictions') }}"><i class="fas fa-fast-forward"></i>Stock Predictions</a>
 				<a href="{{ url_for('update_investments') }}"><i class="fas fa-arrow-up"></i>Update Investments</a>
 				<a href="{{ url_for('profile') }}"><i class="fas fa-user-circle"></i>Profile</a>
 				<a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i>Logout</a>
 			</div>
 		</nav>
+		</center>
 		<div class="content">
 			{% block content %}{% endblock %}
 		</div>
