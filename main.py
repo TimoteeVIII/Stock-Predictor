@@ -455,10 +455,20 @@ def predict_prices(df):
     df_past['Forecast'] = np.nan
     df_past['Forecast'].iloc[-1] = df_past['Actual'].iloc[-1]
 
+    # may have to convert timestamps to dates - skips weekends
+    future_dates = []
+    future_dates.append(df_past['Date'].iloc[-1] + pd.Timedelta(days=1))
+    for i in range(n_forecast - 1):
+        next_date = future_dates[-1] + pd.Timedelta(days=1)
+        if next_date.weekday() > 4:
+            next_date = future_dates[-1] + pd.Timedelta(days=3)
+        future_dates.append(next_date)
+        
     df_future = pd.DataFrame(columns=['Date', 'Actual', 'Forecast'])
-    df_future['Date'] = pd.date_range(start=df_past['Date'].iloc[-1] + pd.Timedelta(days=1), periods=n_forecast)
+    df_future['Date'] = future_dates
+    #df_future['Date'] = pd.date_range(start=df_past['Date'].iloc[-1] + pd.Timedelta(days=1), periods=n_forecast)
     df_future['Forecast'] = Y_.flatten()
     df_future['Actual'] = np.nan
-
+    
     results = df_past.append(df_future).set_index('Date')
     return results
