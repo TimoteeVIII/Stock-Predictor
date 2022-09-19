@@ -132,6 +132,8 @@ def home():
         investments = DataFrame(cursor.fetchall())
         investments['Latest Close'] = ""
         investments['Profit'] = ""
+        if investments.empty:
+            return render_template('home.html', username=session['username'], msg="No Investments")
         # go through each investment, and display as table to user
         for i in investments.index:
             url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+investments['Company'][i]+'&outputsize=compact&apikey=SHUKOMJN4MF9V6OE'
